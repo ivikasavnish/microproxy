@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Proxy Server Admin</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#667eea',
+                        secondary: '#764ba2',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card { transition: all 0.3s ease; }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+        .status-online { background: #10b981; }
+        .status-offline { background: #ef4444; }
+        .route-badge { font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: 0.375rem; }
+        @keyframes pulse-green { 0%, 100% { background-color: #10b981; } 50% { background-color: #34d399; } }
+        .pulse-green { animation: pulse-green 2s infinite; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="app">
+        <!-- Header -->
+        <header class="gradient-bg text-white shadow-lg">
+            <div class="container mx-auto px-6 py-8 flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold">⚙️ Proxy Admin</h1>
+                    <p class="text-blue-100 mt-2">Manage proxy configuration and routes</p>
+                </div>
+                <nav class="flex space-x-4">
+                    <a href="/admin" class="bg-white text-primary px-4 py-2 rounded-md font-medium shadow hover:bg-blue-50 transition">Admin</a>
+                    <a href="/api-tools" class="bg-white text-primary px-4 py-2 rounded-md font-medium shadow hover:bg-blue-50 transition">API Tools</a>
+                </nav>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="container mx-auto px-6 py-8">
+            <!-- Quick Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="card bg-white rounded-xl p-6 shadow-md">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-blue-100 text-blue-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600">Frontend Port</p>
+                            <p class="text-2xl font-semibold text-gray-900">{{ config.frontend_port }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-white rounded-xl p-6 shadow-md">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-green-100 text-green-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600">Backend Port</p>
+                            <p class="text-2xl font-semibold text-gray-900">{{ config.backend_port }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-white rounded-xl p-6 shadow-md">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-purple-100 text-purple-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            </svg>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600">Dev Port</p>
+                            <p class="text-2xl font-semibold text-gray-900">{{ config.dev_port }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card bg-white rounded-xl p-6 shadow-md">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-orange-100 text-orange-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                            </svg>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600">Total Routes</p>
+                            <p class="text-2xl font-semibold text-gray-900">{{ config.backend_paths.length + config.custom_routes.length }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configuration Tabs -->
+            <div class="bg-white rounded-xl shadow-md overflow-hidden">
+                <div class="border-b border-gray-200">
+                    <nav class="flex">
+                        <button v-for="tab in tabs" :key="tab.id" 
+                                @click="activeTab = tab.id"
+                                :class="[activeTab === tab.id ? 'border-primary text-primary bg-blue-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300', 'whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm transition-all']">
+                            {{ tab.name }}
+                        </button>
+                    </nav>
+                </div>
+
+                <div class="p-8">
+                    <!-- Port Configuration Tab -->
+                    <div v-show="activeTab === 'ports'" class="space-y-6">
+                        <h3 class="text-xl font-semibold text-gray-900 mb-6">Port Configuration</h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Frontend Port</label>
+                                <input v-model.number="config.frontend_port" type="number" min="1" max="65535"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary">
+                                <p class="mt-1 text-sm text-gray-500">Main application/build files</p>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Backend Port</label>
+                                <input v-model.number="config.backend_port" type="number" min="1" max="65535"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary">
+                                <p class="mt-1 text-sm text-gray-500">API endpoints</p>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Dev Port</label>
+                                <input v-model.number="config.dev_port" type="number" min="1" max="65535"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary">
+                                <p class="mt-1 text-sm text-gray-500">React/Vue dev server</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Routes Configuration Tab -->
+                    <div v-show="activeTab === 'routes'" class="space-y-6">
+                        <div class="flex justify-between items-center">
+                            <h3 class="text-xl font-semibold text-gray-900">Route Configuration</h3>
+                            <button @click="addCustomRoute" class="bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
+                                Add Custom Route
+                            </button>
+                        </div>
+
+                        <!-- Backend Paths -->
+                        <div class="bg-gray-50 rounded-lg p-6">
+                            <h4 class="font-medium text-gray-900 mb-4">Backend API Paths</h4>
+                            <div class="space-y-3">
+                                <div v-for="(path, index) in config.backend_paths" :key="index" class="flex items-center space-x-3">
+                                    <span class="route-badge bg-green-100 text-green-800">/{{ path }}/</span>
+                                    <span class="text-sm text-gray-600">→ localhost:{{ config.backend_port }}</span>
+                                    <button @click="removeBackendPath(index)" class="text-red-600 hover:text-red-800">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div class="flex items-center space-x-3">
+                                    <input v-model="newBackendPath" @keyup.enter="addBackendPath" 
+                                           placeholder="api, auth, webhook..." 
+                                           class="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary">
+                                    <button @click="addBackendPath" class="bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700">Add</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Custom Routes -->
+                        <div class="bg-gray-50 rounded-lg p-6">
+                            <h4 class="font-medium text-gray-900 mb-4">Custom Routes</h4>
+                            <div class="space-y-4">
+                                <div v-for="(route, index) in config.custom_routes" :key="index" 
+                                     class="flex items-center justify-between bg-white p-4 rounded-lg border">
+                                    <div class="flex items-center space-x-4">
+                                        <span class="route-badge bg-blue-100 text-blue-800">{{ route.path }}</span>
+                                        <span class="text-sm text-gray-600">→ localhost:{{ route.port }}</span>
+                                        <span class="text-sm font-medium text-gray-900">{{ route.name }}</span>
+                                    </div>
+                                    <button @click="removeCustomRoute(index)" class="text-red-600 hover:text-red-800">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CORS Configuration Tab -->
+                    <div v-show="activeTab === 'cors'" class="space-y-6">
+                        <h3 class="text-xl font-semibold text-gray-900 mb-6">CORS Configuration</h3>
+                        
+                        <div class="flex items-center space-x-3 mb-6">
+                            <input v-model="config.cors.enabled" type="checkbox" id="cors-enabled" 
+                                   class="w-4 h-4 text-primary focus:ring-primary border-gray-300 rounded">
+                            <label for="cors-enabled" class="text-sm font-medium text-gray-700">Enable CORS</label>
+                        </div>
+
+                        <div v-if="config.cors.enabled" class="space-y-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Allowed Origins</label>
+                                    <input v-model="corsOriginsText" placeholder="*, http://localhost:3000" 
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary">
+                                    <p class="mt-1 text-sm text-gray-500">Comma-separated origins</p>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Allowed Methods</label>
+                                    <input v-model="corsMethodsText" placeholder="GET, POST, PUT, DELETE" 
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary">
+                                    <p class="mt-1 text-sm text-gray-500">Comma-separated methods</p>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Allowed Headers</label>
+                                    <input v-model="corsHeadersText" placeholder="*, Content-Type, Authorization" 
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary">
+                                    <p class="mt-1 text-sm text-gray-500">Comma-separated headers</p>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Max Age (seconds)</label>
+                                    <input v-model.number="config.cors.max_age" type="number" min="0" 
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary">
+                                    <p class="mt-1 text-sm text-gray-500">Preflight cache duration</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center space-x-3">
+                                <input v-model="config.cors.allow_credentials" type="checkbox" id="cors-credentials" 
+                                       class="w-4 h-4 text-primary focus:ring-primary border-gray-300 rounded">
+                                <label for="cors-credentials" class="text-sm font-medium text-gray-700">Allow Credentials</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Advanced Configuration Tab -->
+                    <div v-show="activeTab === 'advanced'" class="space-y-6">
+                        <h3 class="text-xl font-semibold text-gray-900 mb-6">Advanced Configuration</h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <!-- Header & Cookie Settings -->
+                            <div class="space-y-4">
+                                <h4 class="font-medium text-gray-900">Header & Cookie Settings</h4>
+                                <div class="space-y-3">
+                                    <div class="flex items-center space-x-3">
+                                        <input v-model="config.pass_all_headers" type="checkbox" id="pass-headers" 
+                                               class="w-4 h-4 text-primary focus:ring-primary border-gray-300 rounded">
+                                        <label for="pass-headers" class="text-sm font-medium text-gray-700">Pass All Headers</label>
+                                    </div>
+                                    <div class="flex items-center space-x-3">
+                                        <input v-model="config.pass_cookies" type="checkbox" id="pass-cookies" 
+                                               class="w-4 h-4 text-primary focus:ring-primary border-gray-300 rounded">
+                                        <label for="pass-cookies" class="text-sm font-medium text-gray-700">Pass Cookies</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Hot Reload Settings -->
+                            <div class="space-y-4">
+                                <h4 class="font-medium text-gray-900">Hot Reload Settings</h4>
+                                <div class="space-y-3">
+                                    <div class="flex items-center space-x-3">
+                                        <input v-model="config.hot_reload_enabled" type="checkbox" id="hot-reload" 
+                                               class="w-4 h-4 text-primary focus:ring-primary border-gray-300 rounded">
+                                        <label for="hot-reload" class="text-sm font-medium text-gray-700">Enable Hot Reload</label>
+                                    </div>
+                                    <div v-if="config.hot_reload_enabled">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Watch Paths</label>
+                                        <input v-model="hotReloadPathsText" placeholder="., ./src, ./public" 
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary">
+                                        <p class="mt-1 text-sm text-gray-500">Comma-separated paths to watch</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Testing Tab -->
+                    <div v-show="activeTab === 'testing'" class="space-y-6">
+                        <h3 class="text-xl font-semibold text-gray-900 mb-6">Route Testing</h3>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div>
+                                <h4 class="font-medium text-gray-900 mb-4">Quick Tests</h4>
+                                <div class="space-y-3">
+                                    <button @click="testRoute('/')" class="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
+                                        Test Frontend (/)
+                                    </button>
+                                    <button @click="testRoute('/api/health')" class="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
+                                        Test Backend (/api/health)
+                                    </button>
+                                    <button @click="testRoute('/test-page')" class="w-full bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors">
+                                        Test Dev Server (/test-page)
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-medium text-gray-900 mb-4">Custom Test</h4>
+                                <div class="space-y-3">
+                                    <input v-model="testPath" placeholder="/api/users" 
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary">
+                                    <button @click="testRoute(testPath)" class="w-full bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors">
+                                        Test Custom Route
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Test Results -->
+                        <div v-if="testResults.length > 0" class="mt-8">
+                            <h4 class="font-medium text-gray-900 mb-4">Test Results</h4>
+                            <div class="space-y-3 max-h-64 overflow-y-auto">
+                                <div v-for="result in testResults" :key="result.timestamp" 
+                                     :class="[result.status === 'success' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200', 'border rounded-lg p-4']">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center space-x-3">
+                                            <span :class="[result.status === 'success' ? 'bg-green-500' : 'bg-red-500', 'w-3 h-3 rounded-full']"></span>
+                                            <span class="font-medium">{{ result.path }}</span>
+                                            <span v-if="result.status_code" class="text-sm text-gray-600">{{ result.status_code }}</span>
+                                        </div>
+                                        <span class="text-sm text-gray-500">{{ formatTime(result.timestamp) }}</span>
+                                    </div>
+                                    <div v-if="result.error" class="mt-2 text-sm text-red-600">{{ result.error }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="px-8 py-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
+                    <div class="flex items-center space-x-3">
+                        <div v-if="saving" class="flex items-center text-blue-600">
+                            <svg class="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Saving...
+                        </div>
+                        <div v-else-if="saved" class="flex items-center text-green-600">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            Configuration saved!
+                        </div>
+                    </div>
+                    
+                    <div class="flex space-x-3">
+                        <button @click="loadConfig" class="bg-gray-600 text-white px-6 py-2 rounded-md hover:bg-gray-700 transition-colors">
+                            Reload Config
+                        </button>
+                        <button @click="saveConfig" class="bg-primary text-white px-6 py-2 rounded-md hover:bg-primary/90 transition-colors">
+                            Save Configuration
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Custom Route Modal -->
+        <div v-if="showCustomRouteModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg p-6 w-full max-w-md">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Add Custom Route</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Route Path</label>
+                        <input v-model="newCustomRoute.path" placeholder="/graphql" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Port</label>
+                        <input v-model.number="newCustomRoute.port" type="number" min="1" max="65535" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                        <input v-model="newCustomRoute.name" placeholder="GraphQL Server" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary">
+                    </div>
+                </div>
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button @click="showCustomRouteModal = false" class="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50">
+                        Cancel
+                    </button>
+                    <button @click="saveCustomRoute" class="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90">
+                        Add Route
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted, watch } = Vue;
+
+        createApp({
+            setup() {
+                const activeTab = ref('ports');
+                const serverStatus = ref('online');
+                const saving = ref(false);
+                const saved = ref(false);
+                const showCustomRouteModal = ref(false);
+                const testPath = ref('/api/health');
+                const testResults = ref([]);
+                const newBackendPath = ref('');
+                
+                const config = ref({
+                    frontend_port: 8080,
+                    backend_port: 8081,
+                    dev_port: 5173,
+                    backend_paths: ['api', 'auth', 'sso', 'webhook'],
+                    custom_routes: [],
+                    cors: {
+                        enabled: true,
+                        allow_origins: ['*'],
+                        allow_methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+                        allow_headers: ['*'],
+                        allow_credentials: true,
+                        max_age: 86400
+                    },
+                    pass_all_headers: true,
+                    pass_cookies: true,
+                    hot_reload_enabled: true,
+                    hot_reload_paths: ['.', './src', './public']
+                });
+
+                const newCustomRoute = ref({
+                    path: '',
+                    port: 3000,
+                    name: ''
+                });
+
+                const tabs = [
+                    { id: 'ports', name: 'Ports' },
+                    { id: 'routes', name: 'Routes' },
+                    { id: 'cors', name: 'CORS' },
+                    { id: 'advanced', name: 'Advanced' },
+                    { id: 'testing', name: 'Testing' }
+                ];
+
+                // Computed properties for CORS text inputs
+                const corsOriginsText = computed({
+                    get: () => config.value.cors.allow_origins.join(', '),
+                    set: (value) => {
+                        config.value.cors.allow_origins = value.split(',').map(s => s.trim()).filter(s => s);
+                    }
+                });
+
+                const corsMethodsText = computed({
+                    get: () => config.value.cors.allow_methods.join(', '),
+                    set: (value) => {
+                        config.value.cors.allow_methods = value.split(',').map(s => s.trim()).filter(s => s);
+                    }
+                });
+
+                const corsHeadersText = computed({
+                    get: () => config.value.cors.allow_headers.join(', '),
+                    set: (value) => {
+                        config.value.cors.allow_headers = value.split(',').map(s => s.trim()).filter(s => s);
+                    }
+                });
+
+                const hotReloadPathsText = computed({
+                    get: () => config.value.hot_reload_paths.join(', '),
+                    set: (value) => {
+                        config.value.hot_reload_paths = value.split(',').map(s => s.trim()).filter(s => s);
+                    }
+                });
+
+                // Methods
+                const loadConfig = async () => {
+                    try {
+                        const response = await fetch('/proxy-api/config');
+                        if (response.ok) {
+                            config.value = await response.json();
+                            serverStatus.value = 'online';
+                        }
+                    } catch (error) {
+                        console.error('Failed to load config:', error);
+                        serverStatus.value = 'offline';
+                    }
+                };
+
+                const saveConfig = async () => {
+                    saving.value = true;
+                    saved.value = false;
+                    try {
+                        const response = await fetch('/proxy-api/config', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(config.value)
+                        });
+                        if (response.ok) {
+                            saved.value = true;
+                            setTimeout(() => { saved.value = false; }, 3000);
+                        }
+                    } catch (error) {
+                        console.error('Failed to save config:', error);
+                    } finally {
+                        saving.value = false;
+                    }
+                };
+
+                const testRoute = async (path) => {
+                    try {
+                        const response = await fetch(`/proxy-api/test?path=${encodeURIComponent(path)}`);
+                        const result = await response.json();
+                        testResults.value.unshift(result);
+                        if (testResults.value.length > 10) {
+                            testResults.value = testResults.value.slice(0, 10);
+                        }
+                    } catch (error) {
+                        testResults.value.unshift({
+                            path: path,
+                            status: 'error',
+                            error: error.message,
+                            timestamp: Date.now() / 1000
+                        });
+                    }
+                };
+
+                const addBackendPath = () => {
+                    if (newBackendPath.value.trim() && !config.value.backend_paths.includes(newBackendPath.value.trim())) {
+                        config.value.backend_paths.push(newBackendPath.value.trim());
+                        newBackendPath.value = '';
+                    }
+                };
+
+                const removeBackendPath = (index) => {
+                    config.value.backend_paths.splice(index, 1);
+                };
+
+                const addCustomRoute = () => {
+                    showCustomRouteModal.value = true;
+                };
+
+                const saveCustomRoute = () => {
+                    if (newCustomRoute.value.path && newCustomRoute.value.port && newCustomRoute.value.name) {
+                        config.value.custom_routes.push({ ...newCustomRoute.value });
+                        newCustomRoute.value = { path: '', port: 3000, name: '' };
+                        showCustomRouteModal.value = false;
+                    }
+                };
+
+                const removeCustomRoute = (index) => {
+                    config.value.custom_routes.splice(index, 1);
+                };
+
+                const formatTime = (timestamp) => {
+                    return new Date(timestamp * 1000).toLocaleTimeString();
+                };
+
+                // Hot reload connection
+                const connectHotReload = () => {
+                    if (!config.value.hot_reload_enabled) return;
+                    
+                    const eventSource = new EventSource('/proxy-api/hot-reload');
+                    eventSource.onmessage = (event) => {
+                        const data = JSON.parse(event.data);
+                        if (data.type === 'reload') {
+                            console.log('File changed:', data.file);
+                            // Could add visual notification here
+                        }
+                    };
+                    eventSource.onerror = () => {
+                        setTimeout(connectHotReload, 5000); // Reconnect after 5 seconds
+                    };
+                };
+
+                onMounted(() => {
+                    loadConfig();
+                    connectHotReload();
+                });
+
+                return {
+                    activeTab,
+                    serverStatus,
+                    saving,
+                    saved,
+                    showCustomRouteModal,
+                    testPath,
+                    testResults,
+                    newBackendPath,
+                    config,
+                    newCustomRoute,
+                    tabs,
+                    corsOriginsText,
+                    corsMethodsText,
+                    corsHeadersText,
+                    hotReloadPathsText,
+                    loadConfig,
+                    saveConfig,
+                    testRoute,
+                    addBackendPath,
+                    removeBackendPath,
+                    addCustomRoute,
+                    saveCustomRoute,
+                    removeCustomRoute,
+                    formatTime
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

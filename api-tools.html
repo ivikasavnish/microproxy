@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>API Tools - Advanced Proxy Server</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+    <div id="api-tools-app">
+        <header class="gradient-bg text-white shadow-lg">
+            <div class="container mx-auto px-6 py-8 flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold">🛠️ API Tools</h1>
+                    <p class="text-blue-100 mt-2">List, mock, and intercept API endpoints</p>
+                </div>
+                <nav class="flex space-x-4">
+                    <a href="/admin" class="bg-white text-primary px-4 py-2 rounded-md font-medium shadow hover:bg-blue-50 transition">Admin</a>
+                    <a href="/api-tools" class="bg-white text-primary px-4 py-2 rounded-md font-medium shadow hover:bg-blue-50 transition">API Tools</a>
+                    <a href="/api-config" class="bg-white text-primary px-4 py-2 rounded-md font-medium shadow hover:bg-blue-50 transition">Config</a>
+                </nav>
+            </div>
+        </header>
+        <div class="container mx-auto px-6 py-8">
+            <div class="bg-white rounded-xl shadow-md p-8">
+                <nav class="flex mb-8">
+                    <button v-for="tab in tabs" :key="tab.id"
+                        @click="activeTab = tab.id"
+                        :class="[activeTab === tab.id ? 'border-primary text-primary bg-blue-50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300', 'whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm transition-all']">
+                        {{ tab.name }}
+                    </button>
+                </nav>
+
+                <!-- Mock Management Tab -->
+                <div v-show="activeTab === 'mock'">
+                    <h2 class="text-xl font-semibold mb-4">Mock an API Endpoint</h2>
+                    <form @submit.prevent="registerMock" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Method</label>
+                            <input v-model="mockForm.method" class="w-full px-3 py-2 border rounded" placeholder="GET">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Path</label>
+                            <input v-model="mockForm.path" class="w-full px-3 py-2 border rounded" placeholder="/proxy-api/_mock/hello">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Status Code</label>
+                            <input v-model.number="mockForm.status" type="number" class="w-full px-3 py-2 border rounded" placeholder="200">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Enabled</label>
+                            <input type="checkbox" v-model="mockForm.enabled" class="mr-2"> <span>{{ mockForm.enabled ? 'Yes' : 'No' }}</span>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Mock Response (JSON)</label>
+                            <textarea v-model="mockForm.response" class="w-full px-3 py-2 border rounded" rows="4" placeholder='{"message":"mocked!"}'></textarea>
+                        </div>
+                        <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Register Mock</button>
+                    </form>
+                    <div v-if="mockStatus" class="mt-4 text-green-700">{{ mockStatus }}</div>
+                    <hr class="my-6">
+                    <h3 class="text-lg font-semibold mb-2">Registered Mocks</h3>
+                    <table class="min-w-full text-sm">
+                        <thead>
+                            <tr>
+                                <th class="px-2 py-1">Method</th>
+                                <th class="px-2 py-1">Path</th>
+                                <th class="px-2 py-1">Status</th>
+                                <th class="px-2 py-1">Enabled</th>
+                                <th class="px-2 py-1">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="mock in mocks" :key="mock.method + mock.path">
+                                <td class="px-2 py-1">{{ mock.method }}</td>
+                                <td class="px-2 py-1">{{ mock.path }}</td>
+                                <td class="px-2 py-1">{{ mock.status }}</td>
+                                <td class="px-2 py-1">
+                                    <input type="checkbox" v-model="mock.enabled" @change="toggleMock(mock)">
+                                </td>
+                                <td class="px-2 py-1">
+                                    <button @click="removeMock(mock)" class="text-red-600 hover:underline">Remove</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- API Interception Tab -->
+                <div v-show="activeTab === 'intercept'">
+                    <h2 class="text-xl font-semibold mb-4">Intercepted Requests (Log)</h2>
+                    <div class="bg-gray-100 rounded p-4 max-h-64 overflow-y-auto">
+                        <div v-for="log in interceptLogs" :key="log.timestamp" class="mb-2">
+                            <span class="font-mono text-xs text-gray-700">{{ log.timestamp }}</span>
+                            <span class="ml-2">{{ log.method }} {{ log.path }}</span>
+                        </div>
+                    </div>
+                    <button @click="fetchInterceptLogs" class="mt-4 bg-primary text-white px-4 py-2 rounded hover:bg-primary/90">Reload Log</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const { createApp, ref, onMounted } = Vue;
+
+        createApp({
+            setup() {
+                const activeTab = ref('mock');
+                const tabs = [
+                    { id: 'mock', name: 'Mocking' },
+                    { id: 'intercept', name: 'Interception Log' }
+                ];
+
+                const mockForm = ref({
+                    method: 'GET',
+                    path: '/proxy-api/_mock/hello',
+                    status: 200,
+                    enabled: true,
+                    response: '{"message":"mocked!"}'
+                });
+                const mockStatus = ref('');
+                const mocks = ref([]);
+                const interceptLogs = ref([]);
+
+                const fetchMocks = async () => {
+                    const res = await fetch('/proxy-api/_mock');
+                    const data = await res.json();
+                    mocks.value = data.mocks || [];
+                };
+
+                const registerMock = async () => {
+                    try {
+                        const res = await fetch('/proxy-api/_mock', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                method: mockForm.value.method,
+                                path: mockForm.value.path,
+                                status: mockForm.value.status,
+                                enabled: mockForm.value.enabled,
+                                response: JSON.parse(mockForm.value.response)
+                            })
+                        });
+                        if (res.ok) {
+                            mockStatus.value = 'Mock registered!';
+                            fetchMocks();
+                        } else {
+                            mockStatus.value = 'Failed to register mock.';
+                        }
+                    } catch (e) {
+                        mockStatus.value = 'Invalid JSON or network error.';
+                    }
+                };
+
+                const toggleMock = async (mock) => {
+                    // Update enabled status
+                    await fetch('/proxy-api/_mock', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(mock)
+                    });
+                    fetchMocks();
+                };
+
+                const removeMock = async (mock) => {
+                    // Remove by setting enabled to false and clearing response
+                    mock.enabled = false;
+                    mock.response = "{}";
+                    await fetch('/proxy-api/_mock', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(mock)
+                    });
+                    fetchMocks();
+                };
+
+                const fetchInterceptLogs = async () => {
+                    const res = await fetch('/proxy-api/intercept-log');
+                    const data = await res.json();
+                    interceptLogs.value = data.logs || [];
+                };
+
+                onMounted(() => {
+                    fetchMocks();
+                    fetchInterceptLogs();
+                });
+
+                return {
+                    activeTab,
+                    tabs,
+                    mockForm,
+                    mockStatus,
+                    mocks,
+                    interceptLogs,
+                    fetchMocks,
+                    registerMock,
+                    toggleMock,
+                    removeMock,
+                    fetchInterceptLogs
+                };
+            }
+        }).mount('#api-tools-app');
+    </script>
+</body>
+</html>

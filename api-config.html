@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Proxy Config Editor</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+    <div id="api-config-app">
+        <header class="gradient-bg text-white shadow-lg">
+            <div class="container mx-auto px-6 py-8 flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold">⚙️ Proxy Config</h1>
+                    <p class="text-blue-100 mt-2">Edit and save proxy configuration</p>
+                </div>
+                <nav class="flex space-x-4">
+                    <a href="/admin" class="bg-white text-primary px-4 py-2 rounded-md font-medium shadow hover:bg-blue-50 transition">Admin</a>
+                    <a href="/api-tools" class="bg-white text-primary px-4 py-2 rounded-md font-medium shadow hover:bg-blue-50 transition">API Tools</a>
+                    <a href="/api-config" class="bg-white text-primary px-4 py-2 rounded-md font-medium shadow hover:bg-blue-50 transition">Config</a>
+                </nav>
+            </div>
+        </header>
+        <div class="container mx-auto px-6 py-8">
+            <div class="bg-white rounded-xl shadow-md p-8">
+                <h2 class="text-xl font-semibold mb-4">Proxy Configuration (JSON)</h2>
+                <textarea v-model="configJson" class="w-full h-64 border rounded p-2 font-mono text-sm"></textarea>
+                <div class="mt-4 flex space-x-2">
+                    <button @click="loadConfig" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Reload</button>
+                    <button @click="saveConfig" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Save</button>
+                </div>
+                <div v-if="status" class="mt-4 text-green-700">{{ status }}</div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const { createApp, ref } = Vue;
+        createApp({
+            setup() {
+                const configJson = ref('');
+                const status = ref('');
+                const loadConfig = async () => {
+                    const res = await fetch('/proxy-api/config');
+                    configJson.value = JSON.stringify(await res.json(), null, 2);
+                };
+                const saveConfig = async () => {
+                    try {
+                        const res = await fetch('/proxy-api/config', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: configJson.value
+                        });
+                        if (res.ok) {
+                            status.value = 'Config saved!';
+                        } else {
+                            status.value = 'Failed to save config.';
+                        }
+                    } catch {
+                        status.value = 'Network or JSON error.';
+                    }
+                };
+                loadConfig();
+                return { configJson, status, loadConfig, saveConfig };
+            }
+        }).mount('#api-config-app');
+    </script>
+</body>
+</html>
